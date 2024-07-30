@@ -12,45 +12,67 @@ const AppointmentCard = ({
   RenderAgain,
 }) => {
   const [lawyerDetails, setLawyerDetails] = useState({});
+  const [loading, setLoading] = useState(true);
 
-  function GetLaywerByEmail() {
-    fetch(`${HOST}/lawyer/searchLawyerByEmail?email=${data.lawyerEmail}`)
-      .then((data) => data.json())
-      .then((data) => setLawyerDetails(data.data[0]));
+  async function fetchLawyerDetails() {
+    if (!data.lawyersname && !data.lawyersid) {
+      console.warn("No lawyer identifier provided.");
+      setLoading(false);
+      return;
+    }
+
+    try {
+      let url = `${HOST}/lawyers/searchLawyerByName?name=${data.lawyersname}`;
+      if (!data.lawyersname) {
+        // If name is not available, use another identifier (id)
+        url = `${HOST}/lawyers/searchLawyerById?id=${data.lawyersid}`;
+      }
+      const response = await fetch(url);
+      const responseData = await response.json();
+      if (responseData.data && responseData.data.length > 0) {
+        setLawyerDetails(responseData.data[0]);
+      } else {
+        console.warn("No lawyer data found.");
+        setLawyerDetails({
+          name: "Lawyer",
+          rating: 0
+        });
+      }
+    } catch (error) {
+      console.error("Error fetching lawyer data:", error);
+    } finally {
+      setLoading(false);
+    }
   }
+
   useEffect(() => {
-    GetLaywerByEmail();
-  }, [data]);
+    fetchLawyerDetails();
+  }, [data.lawyersname, data.lawyersid]); // Depend on both name and ID
 
   async function DeleteAppointment(id) {
     if (!id) return;
     try {
-      let res = await fetch(`${HOST}/user/deleteAppointment`, {
+      const res = await fetch(`${HOST}/user/deleteAppointment`, {
         method: "DELETE",
         headers: {
-          "Content-type": "application/json",
+          "Content-Type": "application/json",
         },
         body: JSON.stringify({ DeleteId: id }),
       });
-      let data = await res.json();
-      if (data.success) {
-        notification(
-          "Appointment Cancelled",
-          "Succcessfully cancelled the appointment"
-        );
+      const result = await res.json();
+      if (result.success) {
+        notification("Appointment Cancelled", "Successfully cancelled the appointment");
         RenderAgain();
       }
     } catch (error) {
-      fnotification(
-        "Appointment Cancel Unsuccessful",
-        "Cancelling appointment unsuccessful"
-      );
+      fnotification("Appointment Cancel Unsuccessful", "Cancelling appointment unsuccessful");
       RenderAgain();
-      console.log(error);
+      console.error(error);
     }
   }
 
-  let starArr = new Array(lawyerDetails.rating).fill([]);
+  let starArr = new Array(lawyerDetails.rating || 0).fill([]);
+
   return (
     <div
       className="BigAPCARD"
@@ -63,8 +85,7 @@ const AppointmentCard = ({
         <div className="AppRightLOL">
           <div>
             <h1>
-              {lawyerDetails.name}
-              {` `}
+              {loading ? "Loading..." : lawyerDetails.name || "Lawyer"}
               <img
                 style={{ width: "35px", transform: "translateY(8px)" }}
                 src="Images/DashBoardImages/Yellowpog.png"
@@ -72,24 +93,22 @@ const AppointmentCard = ({
               />
             </h1>
             <p style={{ color: "#675f5f" }}>
-              {`(Associate Attorney) -`}
-              {starArr.map((el, index) => {
-                return <Star size={20} trans={3} key={index + "asd231"} />;
-              })}
+              (Associate Attorney) -
+              {starArr.map((_, index) => (
+                <Star size={20} trans={3} key={index} />
+              ))}
             </p>
-
             <p className="AdvThings">Meeting time - {data.appointmentTime}</p>
             <p className="AdvThings">
-              Meeting Date - {data.appointment_date.date}
+              Meeting Date - {data.appointment_date?.date || "Loading..."}
             </p>
-            {/* <p className="AdvThings">Time Remainig - {data.appointmentTime}</p> */}
             <p
               className="AdvThings"
               style={{ color: "grey", fontSize: "12px" }}
             >
               Appointments are efficient when they are held with proper meeting
               hygiene standards. Meeting hygiene consists of organization and
-              efficiency of conversation.{" "}
+              efficiency of conversation.
             </p>
             <br />
             <div>
